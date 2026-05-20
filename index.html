@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SHAVED</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { 
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #09090b; color: white; overflow-x: hidden;
+        }
+        .bg-barbershop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+                              url('https://images.unsplash.com/photo-1599351431202-180f0b48455d?q=80&w=2000');
+            background-size: cover; background-position: center;
+        }
+        .glass-container {
+            background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .modern-input:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2); }
+    </style>
+</head>
+<body>
+
+<div class="bg-barbershop"></div>
+<div id="app" class="min-h-screen flex flex-col justify-center items-center p-4"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = JSON.parse(__firebase_config);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUser = null;
+
+    signInAnonymously(auth).then((userCredential) => {
+        currentUser = userCredential.user;
+    });
+
+    window.saveUserData = async (data) => {
+        if (!currentUser) return;
+        try {
+            await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile'), data);
+        } catch (e) {
+            console.error("Erro ao salvar:", e);
+        }
+    };
+
+    window.getUserData = async () => {
+        if (!currentUser) return null;
+        try {
+            const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile'));
+            return docSnap.exists() ? docSnap.data() : null;
+        } catch (e) {
+            return null;
+        }
+    };
+</script>
+
+<script>
+    let currentPage = 'welcome';
+
+    function clearErrors() {
+        ['nome-error', 'sobrenome-error', 'email-error', 'senha-error'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = '';
+        });
+    }
+
+    function toggleVisibility(id) {
+        const input = document.getElementById(id);
+        const btn = document.getElementById('toggle-btn-' + id);
+        if (input.type === "password") {
+            input.type = "text";
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+        } else {
+            input.type = "password";
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        }
+    }
+
+    async function handleRegisterFinalize() {
+        const nome = document.getElementById('reg-nome').value.trim();
+        const sobrenome = document.getElementById('reg-sobrenome').value.trim();
+        const email = document.getElementById('reg-email').value;
+        const senha = document.getElementById('senha').value;
+
+        let hasError = false;
+        if (!nome) { document.getElementById('nome-error').innerHTML = '<i class="text-red-500 text-xs italic">Campo obrigatório!</i>'; hasError = true; }
+        if (!sobrenome) { document.getElementById('sobrenome-error').innerHTML = '<i class="text-red-500 text-xs italic">Campo obrigatório!</i>'; hasError = true; }
+        if (!email) { document.getElementById('email-error').innerHTML = '<i class="text-red-500 text-xs italic">Campo obrigatório!</i>'; hasError = true; }
+        if (!senha) { document.getElementById('senha-error').innerHTML = '<i class="text-red-500 text-xs italic">É necessário criar uma senha!</i>'; hasError = true; }
+
+        if (hasError) return;
+
+        // Validação de senha
+        const hasUpper = /[A-Z]/.test(senha);
+        const hasNumber = /[0-9]/.test(senha);
+        const hasSpecial = /[!@#$%^&*]/.test(senha);
+        if (senha.length < 12) { document.getElementById('senha-error').innerHTML = '<i class="text-red-500 text-xs italic">A senha deve conter no mínimo 12 caracteres!</i>'; return; }
+        if (!hasUpper) { document.getElementById('senha-error').innerHTML = '<i class="text-red-500 text-xs italic">A senha deve conter pelo menos uma letra maiúscula!</i>'; return; }
+        if (!hasNumber) { document.getElementById('senha-error').innerHTML = '<i class="text-red-500 text-xs italic">A senha deve conter pelo menos um número!</i>'; return; }
+        if (!hasSpecial) { document.getElementById('senha-error').innerHTML = '<i class="text-red-500 text-xs italic">A senha deve conter pelo menos um caractere especial!</i>'; return; }
+
+        await window.saveUserData({ nome, sobrenome, email });
+        currentPage = 'profile';
+        render();
+    }
+
+    function render() {
+        const app = document.getElementById('app');
+        if (currentPage === 'welcome') {
+            app.innerHTML = `
+                <div class="glass-container w-full max-w-md p-8 rounded-3xl text-center space-y-6">
+                    <div class="text-amber-500 flex justify-center"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l8 8-4 4-8-8 4-4z"/><path d="M6 16l4 4-2 2-4-4 2-2z"/><path d="M16 6l-2 2"/></svg></div>
+                    <h1 class="text-4xl font-bold tracking-tight text-white">SHAVED</h1>
+                    <p class="text-zinc-400">Seu estilo, Sua escolha</p>
+                    <div class="space-y-4">
+                        <button onclick="currentPage='login'; render()" class="w-full py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-xl transition-all">Acessar como cliente</button>
+                        <button onclick="currentPage='login'; render()" class="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl border border-zinc-700 transition-all">Acessar como barbeiro</button>
+                    </div>
+                </div>
+            `;
+        } else if (currentPage === 'login') {
+            app.innerHTML = `
+                <div class="glass-container w-full max-w-md p-8 rounded-3xl space-y-6">
+                    <h2 class="text-2xl font-bold text-center text-white">Login</h2>
+                    <input type="email" placeholder="E-mail" class="w-full p-4 bg-black/20 border border-zinc-700 rounded-xl text-white modern-input">
+                    <input type="password" placeholder="Senha" class="w-full p-4 bg-black/20 border border-zinc-700 rounded-xl text-white modern-input">
+                    <div class="flex gap-4">
+                        <button onclick="currentPage='welcome'; render()" class="w-1/2 py-3 bg-zinc-800 rounded-xl font-bold">Voltar</button>
+                        <button onclick="currentPage='dashboard'; render()" class="w-1/2 py-3 bg-amber-600 text-black font-bold rounded-xl">Entrar</button>
+                    </div>
+                    <button onclick="currentPage='register'; render()" class="w-full text-zinc-500 text-sm">Não tem conta? Cadastre-se</button>
+                </div>
+            `;
+        } else if (currentPage === 'register') {
+            app.innerHTML = `
+                <div class="glass-container w-full max-w-md p-8 rounded-3xl space-y-4">
+                    <h2 class="text-3xl font-extrabold text-amber-500 text-center tracking-tight mb-6">Cadastro</h2>
+                    
+                    <input type="text" id="reg-nome" onfocus="clearErrors()" placeholder="Nome" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z ]/g, '')" class="w-full p-4 bg-black/20 border border-zinc-700 rounded-xl text-white modern-input">
+                    <div id="nome-error"></div>
+                    
+                    <input type="text" id="reg-sobrenome" onfocus="clearErrors()" placeholder="Sobrenome" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z ]/g, '')" class="w-full p-4 bg-black/20 border border-zinc-700 rounded-xl text-white modern-input">
+                    <div id="sobrenome-error"></div>
+                    
+                    <input type="email" id="reg-email" onfocus="clearErrors()" placeholder="E-mail" class="w-full p-4 bg-black/20 border border-zinc-700 rounded-xl text-white modern-input">
+                    <div id="email-error"></div>
+                    
+                    <div class="relative">
+                        <input type="password" id="senha" onfocus="document.getElementById('senha-dicas').classList.remove('hidden')" onblur="document.getElementById('senha-dicas').classList.add('hidden')" placeholder="Criar Senha" class="w-full p-4 bg-black/20 border border-zinc-700 rounded-xl text-white modern-input pr-12">
+                        <button id="toggle-btn-senha" onclick="toggleVisibility('senha')" class="absolute right-4 top-4 text-white"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    </div>
+                    <div id="senha-error"></div>
+                    <div id="senha-dicas" class="hidden text-zinc-400 text-xs space-y-1 p-2">
+                        <p>A senha deve conter pelo menos:</p>
+                        <p>• No mínimo 12 caracteres</p>
+                        <p>• Uma letra maiúscula</p>
+                        <p>• Um número</p>
+                        <p>• Um caractere especial</p>
+                    </div>
+
+                    <div class="flex gap-4 pt-4">
+                        <button onclick="currentPage='welcome'; render()" class="w-1/3 py-3 bg-zinc-800 rounded-xl font-bold">Voltar</button>
+                        <button onclick="handleRegisterFinalize()" class="w-2/3 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-xl shadow-lg">Finalizar Cadastro</button>
+                    </div>
+                </div>
+            `;
+        } else if (currentPage === 'profile') {
+            window.getUserData().then(user => {
+                const container = document.getElementById('profile-content');
+                if (user && container) {
+                    container.innerHTML = `
+                        <p><span class="font-bold text-amber-500">Nome:</span> ${user.nome || ''} ${user.sobrenome || ''}</p>
+                        <p><span class="font-bold text-amber-500">E-mail:</span> ${user.email || ''}</p>
+                    `;
+                }
+            });
+            app.innerHTML = `
+                <div class="glass-container w-full max-w-md p-8 rounded-3xl text-center space-y-6 text-white">
+                    <h2 class="text-3xl font-bold text-amber-500">Perfil</h2>
+                    <div class="w-24 h-24 bg-zinc-700 rounded-full mx-auto flex items-center justify-center text-4xl">👤</div>
+                    <div id="profile-content" class="text-left space-y-2">Carregando dados...</div>
+                    <button onclick="currentPage='welcome'; render()" class="w-full py-3 bg-zinc-800 rounded-xl">Sair</button>
+                </div>
+            `;
+        }
+    }
+    render();
+</script>
+</body>
+</html>
